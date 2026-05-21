@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
     AI_PROVIDER: str = "google"
+    LLM_PROVIDER: str = "google"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    OPENAI_MODEL: str = "gpt-4o"
 
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE_MB: int = 50

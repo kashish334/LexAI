@@ -2,31 +2,60 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
-import { contractsApi, analysisApi, chatApi } from "@/lib/api";
+import { contractsApi, chatApi } from "@/lib/api";
 import { Contract, RiskFlag } from "@/types";
 import {
   FileText, AlertTriangle, Shield, Calendar, Users, ChevronLeft,
-  MessageSquare, TrendingDown, TrendingUp, Minus, Tag, ClipboardList
+  MessageSquare, Minus, Tag,
 } from "lucide-react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import toast from "react-hot-toast";
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Safely converts any clause item the AI might return into a renderable string. */
+function clauseItemToString(item: unknown): string {
+  if (typeof item === "string") return item;
+  if (item === null || item === undefined) return "";
+  if (typeof item === "object") {
+    const obj = item as Record<string, unknown>;
+    // {party, obligation}
+    if (obj.party && obj.obligation) return `${obj.party}: ${obj.obligation}`;
+    // {content, importance, page_number}
+    if (obj.content) return String(obj.content);
+    // {label, date} or {date, event} (shouldn't appear in clauses but just in case)
+    if (obj.date && obj.event) return `${obj.date} — ${obj.event}`;
+    // last resort: join all string values
+    return Object.values(obj)
+      .filter((v) => typeof v === "string")
+      .join(" · ");
+  }
+  return String(item);
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
 function RiskGauge({ score }: { score: number }) {
   const color = score >= 70 ? "#ef4444" : score >= 40 ? "#f59e0b" : "#10b981";
   const label = score >= 70 ? "High Risk" : score >= 40 ? "Medium Risk" : "Low Risk";
   const angle = (score / 100) * 180 - 90;
-
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-32 h-16 overflow-hidden">
         <svg viewBox="0 0 100 50" className="w-full">
-          <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round"/>
+          <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round" />
           <path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke={color} strokeWidth="8" strokeLinecap="round"
-            strokeDasharray={`${(score/100)*126} 126`} opacity="0.9"/>
-          <line x1="50" y1="50" x2={50+32*Math.cos((angle-90)*Math.PI/180)} y2={50+32*Math.sin((angle-90)*Math.PI/180)}
-            stroke="white" strokeWidth="2" strokeLinecap="round"/>
-          <circle cx="50" cy="50" r="3" fill="white"/>
+            strokeDasharray={`${(score / 100) * 126} 126`} opacity="0.9" />
+          <line x1="50" y1="50"
+            x2={50 + 32 * Math.cos((angle - 90) * Math.PI / 180)}
+            y2={50 + 32 * Math.sin((angle - 90) * Math.PI / 180)}
+            stroke="white" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="50" cy="50" r="3" fill="white" />
         </svg>
       </div>
       <div className="text-3xl font-bold mt-1" style={{ color }}>{score}</div>
@@ -50,7 +79,11 @@ function RiskFlagCard({ flag }: { flag: RiskFlag }) {
         <div>
           <div className="font-semibold text-sm">{flag.type}</div>
           <div className="text-sm opacity-80 mt-1 leading-relaxed">{flag.description}</div>
-          {flag.clause && <div className="text-xs opacity-60 mt-2 font-mono italic">&ldquo;{flag.clause.slice(0, 150)}...&rdquo;</div>}
+          {flag.clause && (
+            <div className="text-xs opacity-60 mt-2 font-mono italic">
+              &ldquo;{flag.clause.slice(0, 150)}...&rdquo;
+            </div>
+          )}
         </div>
         <span className={clsx("ml-auto text-xs px-2 py-0.5 rounded-full border capitalize flex-shrink-0", colors[flag.severity])}>
           {flag.severity}
@@ -60,6 +93,10 @@ function RiskFlagCard({ flag }: { flag: RiskFlag }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -68,25 +105,32 @@ export default function ContractDetailPage() {
   const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
-    contractsApi.get(Number(id))
+    contractsApi
+      .get(Number(id))
       .then((r) => { setContract(r.data); setLoading(false); })
       .catch(() => { toast.error("Contract not found"); router.push("/contracts"); });
   }, [id]);
 
   const startChat = async () => {
-    const res = await chatApi.sendMessage({ message: `Please give me a brief overview of this contract`, contract_id: Number(id) });
+    const res = await chatApi.sendMessage({
+      message: "Please give me a brief overview of this contract",
+      contract_id: Number(id),
+    });
     router.push(`/chat?session=${res.data.session_id}`);
   };
 
   const tabs = ["overview", "risk", "clauses", "parties"];
 
-  if (loading) return (
-    <AppLayout>
-      <div className="p-8 max-w-5xl mx-auto space-y-4">
-        {[1,2,3].map(i => <div key={i} className="h-32 shimmer-bg rounded-2xl" />)}
-      </div>
-    </AppLayout>
-  );
+  if (loading)
+    return (
+      <AppLayout>
+        <div className="p-8 max-w-5xl mx-auto space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-32 shimmer-bg rounded-2xl" />
+          ))}
+        </div>
+      </AppLayout>
+    );
 
   if (!contract) return null;
 
@@ -95,19 +139,26 @@ export default function ContractDetailPage() {
       <div className="p-8 max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <Link href="/contracts" className="flex items-center gap-2 text-slate-400 hover:text-slate-200 text-sm mb-4 transition-colors">
+          <Link
+            href="/contracts"
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-200 text-sm mb-4 transition-colors"
+          >
             <ChevronLeft className="w-4 h-4" /> Back to Contracts
           </Link>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-white" style={{fontFamily:'Sora,sans-serif'}}>{contract.original_filename}</h1>
+              <h1 className="text-2xl font-bold text-white" style={{ fontFamily: "Sora,sans-serif" }}>
+                {contract.original_filename}
+              </h1>
               <div className="flex items-center gap-3 mt-2 flex-wrap">
                 {contract.contract_type && (
                   <span className="bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 text-xs px-2.5 py-1 rounded-full">
                     {contract.contract_type}
                   </span>
                 )}
-                <span className="text-slate-500 text-xs">{contract.page_count} pages · {contract.word_count?.toLocaleString()} words</span>
+                <span className="text-slate-500 text-xs">
+                  {contract.page_count} pages · {contract.word_count?.toLocaleString()} words
+                </span>
               </div>
             </div>
             <button
@@ -125,25 +176,32 @@ export default function ContractDetailPage() {
             <button
               key={t}
               onClick={() => setActiveTab(t)}
-              className={clsx("px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all", activeTab === t ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200")}
+              className={clsx(
+                "px-4 py-2 rounded-lg text-sm font-medium capitalize transition-all",
+                activeTab === t ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"
+              )}
             >
               {t}
             </button>
           ))}
         </div>
 
-        {/* Overview */}
+        {/* ── Overview ── */}
         {activeTab === "overview" && (
           <div className="space-y-6 animate-fade-up">
             {contract.summary && (
               <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-                <h2 className="text-white font-semibold mb-3 flex items-center gap-2"><FileText className="w-4 h-4 text-indigo-400" /> Executive Summary</h2>
+                <h2 className="text-white font-semibold mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-indigo-400" /> Executive Summary
+                </h2>
                 <p className="text-slate-300 leading-relaxed text-sm">{contract.summary}</p>
               </div>
             )}
             {contract.key_dates && contract.key_dates.length > 0 && (
               <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6">
-                <h2 className="text-white font-semibold mb-4 flex items-center gap-2"><Calendar className="w-4 h-4 text-indigo-400" /> Key Dates</h2>
+                <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-indigo-400" /> Key Dates
+                </h2>
                 <div className="space-y-3">
                   {contract.key_dates.map((d, i) => (
                     <div key={i} className="flex items-start gap-3 border-l-2 border-indigo-500/40 pl-3">
@@ -159,7 +217,7 @@ export default function ContractDetailPage() {
           </div>
         )}
 
-        {/* Risk */}
+        {/* ── Risk ── */}
         {activeTab === "risk" && (
           <div className="space-y-6 animate-fade-up">
             <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 flex items-center gap-8">
@@ -167,13 +225,15 @@ export default function ContractDetailPage() {
               <div>
                 <h2 className="text-white font-semibold mb-1">Risk Assessment</h2>
                 <p className="text-slate-400 text-sm leading-relaxed">
-                  {(contract.risk_flags?.length || 0)} risk flag(s) detected across this contract.
+                  {contract.risk_flags?.length || 0} risk flag(s) detected across this contract.
                 </p>
               </div>
             </div>
             {contract.risk_flags && contract.risk_flags.length > 0 ? (
               <div className="space-y-3">
-                {contract.risk_flags.map((flag, i) => <RiskFlagCard key={i} flag={flag} />)}
+                {contract.risk_flags.map((flag, i) => (
+                  <RiskFlagCard key={i} flag={flag} />
+                ))}
               </div>
             ) : (
               <div className="text-center py-12 text-slate-500">
@@ -184,32 +244,46 @@ export default function ContractDetailPage() {
           </div>
         )}
 
-        {/* Clauses */}
+        {/* ── Clauses ── */}
         {activeTab === "clauses" && contract.clauses && (
           <div className="space-y-4 animate-fade-up">
-            {Object.entries(contract.clauses).filter(([k, v]) => Array.isArray(v) && v.length > 0).map(([key, items]) => (
-              <div key={key} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
-                <h3 className="text-white font-semibold mb-3 capitalize flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-indigo-400" />
-                  {key.replace(/_/g, " ")} Clauses
-                </h3>
-                <div className="space-y-2">
-                  {(items as string[]).map((item, i) => (
-                    <div key={i} className="text-slate-300 text-sm bg-slate-700/30 rounded-lg px-4 py-3 leading-relaxed">{item}</div>
-                  ))}
+            {Object.entries(contract.clauses)
+              .filter(([, v]) => Array.isArray(v) && (v as unknown[]).length > 0)
+              .map(([key, items]) => (
+                <div key={key} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5">
+                  <h3 className="text-white font-semibold mb-3 capitalize flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-indigo-400" />
+                    {key.replace(/_/g, " ")} Clauses
+                  </h3>
+                  <div className="space-y-2">
+                    {(items as unknown[]).map((item, i) => {
+                      const text = clauseItemToString(item);
+                      if (!text) return null;
+                      return (
+                        <div
+                          key={i}
+                          className="text-slate-300 text-sm bg-slate-700/30 rounded-lg px-4 py-3 leading-relaxed"
+                        >
+                          {text}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
 
-        {/* Parties */}
+        {/* ── Parties ── */}
         {activeTab === "parties" && (
           <div className="animate-fade-up">
             {contract.parties && contract.parties.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {contract.parties.map((p, i) => (
-                  <div key={i} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 flex items-center gap-4">
+                  <div
+                    key={i}
+                    className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 flex items-center gap-4"
+                  >
                     <div className="w-10 h-10 bg-indigo-600/20 rounded-xl flex items-center justify-center">
                       <Users className="w-5 h-5 text-indigo-400" />
                     </div>

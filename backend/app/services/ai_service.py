@@ -26,7 +26,7 @@ def get_ai_client():
     if settings.AI_PROVIDER == "google":
         import google.generativeai as genai
         genai.configure(api_key=settings.GOOGLE_API_KEY)
-        return genai.GenerativeModel("gemini-1.5-pro")
+        return genai.GenerativeModel("gemini-2.5-flash")
     else:
         from openai import AsyncOpenAI
         return AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
@@ -75,7 +75,7 @@ Based ONLY on the contract sections provided above, answer the question. Include
             import google.generativeai as genai
             genai.configure(api_key=settings.GOOGLE_API_KEY)
             model = genai.GenerativeModel(
-                "gemini-1.5-pro",
+                "gemini-2.5-flash",
                 system_instruction=SYSTEM_PROMPT,
             )
             response = model.generate_content(prompt)
@@ -121,7 +121,7 @@ async def stream_answer(
         if settings.AI_PROVIDER == "google":
             import google.generativeai as genai
             genai.configure(api_key=settings.GOOGLE_API_KEY)
-            model = genai.GenerativeModel("gemini-1.5-pro", system_instruction=SYSTEM_PROMPT)
+            model = genai.GenerativeModel("gemini-2.5-flash", system_instruction=SYSTEM_PROMPT)
             response = model.generate_content(prompt, stream=True)
             for chunk in response:
                 if chunk.text:
@@ -182,7 +182,7 @@ Return ONLY valid JSON, no markdown."""
         if settings.AI_PROVIDER == "google":
             import google.generativeai as genai
             genai.configure(api_key=settings.GOOGLE_API_KEY)
-            model = genai.GenerativeModel("gemini-1.5-pro")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             response = model.generate_content(analysis_prompt)
             raw = response.text
         else:
