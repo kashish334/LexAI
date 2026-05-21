@@ -197,7 +197,3 @@ npx vercel --prod
 | `MAX_FILE_SIZE_MB` | ❌ | Max upload size (default 50) |
 
 ---
-
-## License
-
-MIT — feel free to use this project as a portfolio piece or production foundation.
