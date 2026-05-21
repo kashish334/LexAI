@@ -29,7 +29,7 @@
 ### Backend
 - **FastAPI** + **SQLAlchemy (async)** + **PostgreSQL**
 - **LangChain** · **FAISS** · **Sentence Transformers** (all-MiniLM-L6-v2)
-- **Google Gemini 1.5 Pro** / **OpenAI GPT-4o** (configurable)
+- **Google Gemini 2.5 flash** / **OpenAI GPT-4o** (configurable)
 - **PyMuPDF** for PDF parsing · **python-docx** for DOCX
 - **Redis** for caching · **slowapi** for rate limiting
 - **JWT** authentication · **bcrypt** password hashing
